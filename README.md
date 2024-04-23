@@ -18,3 +18,8 @@
 node main.js
 
 ```
+
+clear space /docker/overlay2
+Is it safe to clean docker/overlay2
+var/lib/docker/overlay2 cleanup
+Some way to clean up / identify contents of /var/lib/docker
