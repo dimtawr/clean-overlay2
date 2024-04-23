@@ -21,32 +21,35 @@ fs.readdir("/var/lib/docker/overlay2/", (err, files) => {
     const promises = [];
     const res = [];
 
-    for (const x of objects) {
-      for (const y of files) {
-        if (x && y) {
+    for (const y of files) {
+      let foundFlag = false;
+      for (const x of objects) {
+        if (x && y && !foundFlag) {
           const inspectCommand = `docker inspect ${x} | grep ${y.substring(0, 8)}`;
           const promise = new Promise((resolve, reject) => {
             exec(inspectCommand, (err, out, stderr) => {
               if (err) {
-                  if (!res.includes(y)) {
-                    counter ++
-                    res.push(y);
-                    // remove it so as not to repeat the check for it
-                    files[files.findIndex((z) => z === y)] = undefined;
-                }
                 resolve(); // Resolve even if there's an error
                 return;
               }
-              resolve();
+              if (stderr) console.error(stderr);
+              if (out) {
+                foundFlag = true;
+                resolve();
+              }
             });
           });
           promises.push(promise);
         }
       }
+      if (!foundFlag) {
+        res.push(y);
+        counter++;
+      }
     }
 
     Promise.all(promises).then(() => {
-        console.log({ unusedFolders: counter, names: res });
+      console.log({ unusedFolders: counter, names: res });
     });
   });
 });
