@@ -22,34 +22,41 @@ fs.readdir("/var/lib/docker/overlay2/", (err, files) => {
     const res = [];
 
     for (const y of files) {
-      let foundFlag = false;
-      for (const x of objects) {
-        if (x && y && !foundFlag) {
-          const inspectCommand = `docker inspect ${x} | grep ${y.substring(0, 8)}`;
-          const promise = new Promise((resolve, reject) => {
-            exec(inspectCommand, (err, out, stderr) => {
-              if (err) {
-                resolve(); // Resolve even if there's an error
-                return;
-              }
-              if (stderr) console.error(stderr);
-              if (out) {
-                foundFlag = true;
-                resolve();
-              }
+      if (y.length > 10) {
+        let foundFlag = false;
+        for (const x of objects) {
+          if (x && y && !foundFlag) {
+            const inspectCommand = `docker inspect ${x} | grep ${y.substring(0, 8)}`;
+            const promise = new Promise((resolve, reject) => {
+              exec(inspectCommand, (err, out, stderr) => {
+                if (err) {
+                  resolve(); // Resolve even if there's an error
+                  return;
+                }
+                if (stderr) {
+                  console.error(stderr);
+                  resolve(); // Resolve even if there's an error
+                  return;
+                }
+                if (out) {
+                  foundFlag = true;
+                  resolve();
+                  return;
+                }
+              });
             });
-          });
-          promises.push(promise);
+            promises.push(promise);
+          }
         }
-      }
-      if (!foundFlag) {
-        res.push(y);
-        counter++;
+        Promise.all(promises).then(() => {
+          if (!foundFlag) {
+            res.push(y);
+            counter++;
+          }
+        }); // Wait for all promises to resolve
       }
     }
 
-    Promise.all(promises).then(() => {
-      console.log({ unusedFolders: counter, names: res });
-    });
+    console.log({ unusedFolders: counter, names: res });
   });
 });
