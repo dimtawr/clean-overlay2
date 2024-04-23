@@ -26,10 +26,11 @@ fs.readdir("/var/lib/docker/overlay2/", (err, files) => {
         let foundFlag = false;
         for (const x of objects) {
           if (x && y && !foundFlag) {
-            const inspectCommand = `docker inspect ${x} | grep ${y.substring(0, 8)}`;
+            const inspectCommand = `docker inspect ${x} | grep ${y}`;
             const promise = new Promise((resolve, reject) => {
               exec(inspectCommand, (err, out, stderr) => {
                 if (err) {
+                  console.error(err);
                   resolve(); // Resolve even if there's an error
                   return;
                 }
@@ -40,23 +41,42 @@ fs.readdir("/var/lib/docker/overlay2/", (err, files) => {
                 }
                 if (out) {
                   foundFlag = true;
-                  resolve();
-                  return;
                 }
+                resolve();
               });
             });
             promises.push(promise);
           }
         }
-        Promise.all(promises).then(() => {
-          if (!foundFlag) {
-            res.push(y);
-            counter++;
-          }
-        }); // Wait for all promises to resolve
       }
     }
 
-    console.log({ unusedFolders: counter, names: res });
+    Promise.all(promises).then(() => {
+      for (const y of files) {
+        if (y.length > 10) {
+          let foundFlag = false;
+          for (const x of objects) {
+            if (x && y && !foundFlag) {
+              const inspectCommand = `docker inspect ${x} | grep ${y}`;
+              exec(inspectCommand, (err, out, stderr) => {
+                if (err) {
+                  console.error(err);
+                  return;
+                }
+                if (stderr) {
+                  console.error(stderr);
+                  return;
+                }
+                if (!out) {
+                  res.push(y);
+                  counter++;
+                }
+              });
+            }
+          }
+        }
+      }
+      console.log({ unusedFolders: counter, names: res });
+    }); // Wait for all promises to resolve
   });
 });
