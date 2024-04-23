@@ -1,5 +1,7 @@
+const util = require("util");
 const { exec } = require("child_process");
 const fs = require("fs");
+const execPromise = util.promisify(exec);
 
 let counter = 0;
 fs.readdir("/var/lib/docker/overlay2/", (err, files) => {
@@ -18,65 +20,39 @@ fs.readdir("/var/lib/docker/overlay2/", (err, files) => {
     let objects = list.map((x) => x.substring(0, 12));
     objects[0] = undefined; // clean first element "CONTAINER ID"
 
-    const promises = [];
     const res = [];
 
-    for (const y of files) {
-      if (y.length > 10) {
-        let foundFlag = false;
-        for (const x of objects) {
-          if (x && y && !foundFlag) {
-            const inspectCommand = `docker inspect ${x} | grep ${y}`;
-            const promise = new Promise((resolve, reject) => {
-              exec(inspectCommand, (err, out, stderr) => {
-                if (err) {
-                  console.error(err);
-                  resolve(); // Resolve even if there's an error
-                  return;
-                }
-                if (stderr) {
-                  console.error(stderr);
-                  resolve(); // Resolve even if there's an error
-                  return;
-                }
-                if (out) {
-                  foundFlag = true;
-                }
-                resolve();
-              });
-            });
-            promises.push(promise);
-          }
-        }
-      }
-    }
+    console.log("Files:", files.length);
 
-    Promise.all(promises).then(() => {
-      for (const y of files) {
+    Promise.all(
+      files.map(async (y) => {
         if (y.length > 10) {
           let foundFlag = false;
-          for (const x of objects) {
-            if (x && y && !foundFlag) {
-              const inspectCommand = `docker inspect ${x} | grep ${y}`;
-              exec(inspectCommand, (err, out, stderr) => {
-                if (err) {
-                  console.error(err);
+          await Promise.all(
+            objects.map(async (x) => {
+              if (x && y && !foundFlag) {
+                const inspectCommand = `docker inspect ${x} | grep ${y}`;
+                try {
+                  const { stdout, stderr } = await execPromise(inspectCommand);
+                  if (stdout) {
+                    foundFlag = true;
+                    y = undefined;
+                  }
+                } catch (error) {
                   return;
                 }
-                if (stderr) {
-                  console.error(stderr);
-                  return;
-                }
-                if (!out) {
-                  res.push(y);
-                  counter++;
-                }
-              });
+              }
+            }),
+          ).then(() => {
+            if (!foundFlag) {
+              res.push(y);
+              counter++;
             }
-          }
+          });
         }
-      }
+      }),
+    ).then(() => {
       console.log({ unusedFolders: counter, names: res });
-    }); // Wait for all promises to resolve
+    });
   });
 });
