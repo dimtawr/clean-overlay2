@@ -3,3 +3,8 @@
  -- This function goes through all existing folders, makes an inspection for all containers to check its use.
 
  -- Relevant for virgin machines, on which containers are frequently updated and the volume of data grows to gigabytes, or even hundreds of gigabytes
+
+ <h1>RUN</h1>
+ ```bash
+ node main.js
+ ```
